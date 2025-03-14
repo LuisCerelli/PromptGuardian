@@ -1,11 +1,30 @@
-## 📝 Proyecto: AI-Prompt-Validator  
+# Prompt Preprocessor: Sistema Inteligente de Validación de Prompts
 
-### 📌 **Objetivo del Proyecto**  
+## 🎯 Objetivo
+Diseñar un sistema de preprocesamiento de prompts que:
+- Valide y corrija entradas antes de enviarlas a modelos de IA
+- Optimice la calidad y seguridad de las generaciones
+- Mitigue riesgos potenciales en la interacción con IA
 
-El objetivo de este proyecto es diseñar un **sistema que valide y corrija los prompts antes de enviarlos a la IA**. Esto ayuda a optimizar las respuestas generadas, asegurando que sean **claras, conformes y libres de riesgos potenciales** (por ejemplo, sesgo, lenguaje dañino o datos sensibles).  
+## 🛡️ Características Principales
+- Corrección gramatical automática
+- Detección de lenguaje dañino o inapropiado
+- Evaluación de sesgos y contenido sensible
+- Mejora de la claridad y precisión de prompts
 
-Para lograr esto, configuramos diferentes servicios en **Azure** y creamos una **arquitectura backend** basada en **Azure Functions** y **Azure OpenAI**.  
+## 🏗️ Arquitectura
+- **Backend:** Azure Functions
+- **Servicios de Seguridad:** 
+  * Azure Content Safety
+  * OpenAI (Modelo GPT para mejora de prompts)
+- **Procesamiento de Lenguaje:** 
+  * spaCy
+  * TextBlob
 
+## 🔒 Componentes de Seguridad
+- Análisis de riesgos de contenido
+- Filtrado de lenguaje inapropiado
+- Sugerencias de alternativas éticas y constructivas
 ---
 
 ## ⚙️ **Configuración Paso a Paso**  
