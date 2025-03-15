@@ -40,25 +40,27 @@ cd myFunctionApp
 - Debe quedar esta estructura: 
 ```
 myFunctionApp/
-├── .venv/
 ├── function_app.py
-├── requirements.txt
-└── local.settings.json
+├── host.json
+├── local.settings.json
+└── requirements.txt
 ```
 ### 2️⃣ **Actualizamos el Homebrew (solo para Linux/Mac) e instalamos CLI y CORE TOOLS de Azure**
 ```
 # Instalar Azure CLI
 brew update
 brew install azure-cli
-
+```
+```
 # Instalar Azure Functions Core Tools
 brew tap azure/functions
 # Linux/Mac:
-brew install azure-functions-core-tools@4 --unsafe-perm true
+brew install azure-functions-core-tools@4 
 # Windows:
 npm install -g azure-functions-core-tools@4 #Windows
-choco install azure-functions-core-tools-4  # considerar también ai usa Chocolatey
-
+choco install azure-functions-core-tools-4  # considerar también si usa Chocolatey
+```
+```
 # Verificar instalaciones
 az --version
 func --version
@@ -71,16 +73,7 @@ func --version
 ```
 az login
 ```
-2. Crear proyecto de Functions: 
-```
-# Crear directorio del proyecto
-mkdir azure-python-demo
-cd azure-python-demo
-
-# Inicializar proyecto de Azure Functions
-func init . --worker-runtime python
-```
-3. Codigo en `function_app.py`:
+2. Codigo en `function_app.py`:
 ```
 import azure.functions as func
 import json
@@ -429,7 +422,7 @@ def detect_language_risks_endpoint(req: func.HttpRequest) -> func.HttpResponse:
     - Detectar posibles sesgos
     - Evaluar nivel de riesgo
 
-4. Archivo `requirements.txt`:
+3. Archivo `requirements.txt`:
 ```
 azure-functions==1.17.0
 azure-ai-contentsafety==1.0.0
@@ -443,7 +436,7 @@ setuptools
 wheel
 ```
 
-5. Archivo `host.json`:
+4. Archivo `host.json`:
 ```
 {
     "version": "2.0",
@@ -461,7 +454,7 @@ wheel
     }
 }
 ```
-6. Archivo `local.settings.json`:
+5. Archivo `local.settings.json`:
 ```
 {
     "IsEncrypted": false,
@@ -475,20 +468,20 @@ wheel
     }
 }
 ```
-7. Archivo `.gitignore`: 
+6. Agregarle al archivo `.gitignore`: 
 ```
-venv/
-__pycache__/
+
 *.pyc
-.env
-local.settings.json
+
 ```
-8. Crear recursos de Azure: 
+7. Crear recursos de Azure: 
 ```
  # Crear grupo de recursos
 # Añadir región como variable
 REGION="eastus"
 az group create --name MyPythonFunctionsGroup --location $REGION
+```
+```
 
 # Crear cuenta de storage (requerida para Functions)
 az storage account create \
