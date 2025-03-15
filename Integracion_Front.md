@@ -1,4 +1,5 @@
 # Integración del Frontend con Azure Function
+#### **<u>Importante:</u>**: Este material ha sido removido de manera temporal de la nube por motivos presupuestarios.
 
 ## 🔹 Endpoint de la API
 ```plaintext
