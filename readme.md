@@ -65,15 +65,9 @@ choco install azure-functions-core-tools-4  # considerar también si usa Chocola
 az --version
 func --version
 ```
+### 3️⃣ **Completamos los archivos:**
 
-### 3️⃣ **Crear Azure Function App**  
-💡 **Función principal donde correrá nuestra validación.**  
-
-1. Iniciar sesión en Azure: 
-```
-az login
-```
-2. Codigo en `function_app.py`:
+1. Codigo en `function_app.py`:
 ```
 import azure.functions as func
 import json
@@ -422,7 +416,7 @@ def detect_language_risks_endpoint(req: func.HttpRequest) -> func.HttpResponse:
     - Detectar posibles sesgos
     - Evaluar nivel de riesgo
 
-3. Archivo `requirements.txt`:
+2. Archivo `requirements.txt`:
 ```
 azure-functions==1.17.0
 azure-ai-contentsafety==1.0.0
@@ -436,7 +430,7 @@ setuptools
 wheel
 ```
 
-4. Archivo `host.json`:
+3. Archivo `host.json`:
 ```
 {
     "version": "2.0",
@@ -454,7 +448,7 @@ wheel
     }
 }
 ```
-5. Archivo `local.settings.json`:
+4. Archivo `local.settings.json`:
 ```
 {
     "IsEncrypted": false,
@@ -468,13 +462,20 @@ wheel
     }
 }
 ```
-6. Agregarle al archivo `.gitignore`: 
+5. Agregarle al archivo `.gitignore`: 
 ```
 
 *.pyc
 
 ```
-7. Crear recursos de Azure: 
+### 4️⃣ **Crear Azure Function App**  
+💡 **Función principal donde correrá nuestra validación.**  
+
+1. Iniciar sesión en Azure: 
+```
+az login
+```
+2. Crear recursos de Azure: 
 ```
  # Crear grupo de recursos
 # Añadir región como variable
@@ -500,7 +501,8 @@ az functionapp create \
     --name mypythonfunctionapp$RANDOM \
     --storage-account mystorageaccount$RANDOM
 ```
-9. Crear entorno virtual y descargar spacy:
+### 5️⃣ **Continuar trabajando en local:**
+1. Crear entorno virtual y descargar spacy:
 ```
 # Antes de activar, asegurarse de tener la última versión de pip
 python -m pip install --upgrade pip
@@ -518,15 +520,15 @@ pip install -r requirements.txt
 # Instalar modelo de spaCy
 python -m spacy download es_core_news_sm
 ```
-10. Validar función
+2. Validar función
 ```
 func validate
 ```
-11. Probar localmente:
+3. Probar localmente:
 ```
 func start
 ```
-12. Desplegar en Azure:
+### 6️⃣ **Desplegar en Azure:**
 ```
 # Publicar Function App
 func azure functionapp publish mypythonfunctionapp
