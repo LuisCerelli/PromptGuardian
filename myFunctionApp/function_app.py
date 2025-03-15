@@ -1,219 +1,179 @@
-# import azure.functions as func
-# import datetime
-# import json
-# import logging
-
-# app = func.FunctionApp()
-
 import azure.functions as func
+import logging
 import json
 import re
-import os
-import spacy
-from typing import Dict, Any
-from profanity_check import predict
-from textblob import TextBlob
-import logging
-import openai
+import random
 
-# Importaciones de Azure Content Safety
-from azure.ai.contentsafety import ContentSafetyClient
-from azure.core.credentials import AzureKeyCredential
-from azure.ai.contentsafety.models import AnalyzeTextOptions
-
-# Cargar modelos de procesamiento de lenguaje
-nlp = spacy.load("es_core_news_sm")
-
-class PromptPreprocessor:
-    @staticmethod
-    def analyze_content_safety(prompt: str) -> Dict[str, Any]:
-        """
-        Análisis de seguridad de contenido con Azure Content Safety
-        """
-        try:
-            # Configuración de Content Safety desde variables de entorno
-            content_safety_endpoint = os.environ.get('AZURE_CONTENT_SAFETY_ENDPOINT')
-            content_safety_key = os.environ.get('AZURE_CONTENT_SAFETY_KEY')
-            
-            content_safety_client = ContentSafetyClient(
-                content_safety_endpoint, 
-                AzureKeyCredential(content_safety_key)
-            )
-            
-            # Preparar solicitud de análisis
-            request = AnalyzeTextOptions(text=prompt)
-            
-            # Realizar análisis
-            response = content_safety_client.analyze_text(request)
-            
-            # Evaluar resultados
-            safety_results = {
-                'hate': response.hate_result.severity if response.hate_result else 0,
-                'sexual': response.sexual_result.severity if response.sexual_result else 0,
-                'self_harm': response.self_harm_result.severity if response.self_harm_result else 0,
-                'violence': response.violence_result.severity if response.violence_result else 0
-            }
-            
-            return {
-                'is_safe': all(severity <= 2 for severity in safety_results.values()),
-                'details': safety_results
-            }
-        except Exception as e:
-            logging.error(f"Error en análisis de seguridad: {str(e)}")
-            return {
-                'is_safe': False,
-                'error': str(e)
-            }
-
-    @staticmethod
-    def enhance_prompt_with_openai(prompt: str) -> str:
-        """
-        Mejora del prompt utilizando GPT para claridad
-        """
-        try:
-            # Configuración de OpenAI desde variables de entorno
-            openai.api_key = os.environ.get('OPENAI_API_KEY')
-            
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Eres un asistente que mejora la claridad y precisión de los prompts."},
-                    {"role": "user", "content": f"Mejora la claridad de este prompt: {prompt}"}
-                ]
-            )
-            
-            enhanced_prompt = response.choices[0].message.content.strip()
-            return enhanced_prompt
-        except Exception as e:
-            logging.error(f"Error en mejora de prompt: {str(e)}")
-            return prompt
-
-    @staticmethod
-    def grammatical_correction(result: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Corrección gramatical usando TextBlob
-        """
-        prompt = result['processed_prompt']
-        corrected = TextBlob(prompt).correct()
-        
-        if str(corrected) != prompt:
-            result['issues'].append('grammatical_errors')
-            result['suggestions'].append({
-                'type': 'grammar',
-                'original': prompt,
-                'corrected': str(corrected)
-            })
-            result['processed_prompt'] = str(corrected)
-        
-        return result
-
-    @staticmethod
-    def detect_harmful_language(result: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Detección de lenguaje dañino o inapropiado
-        """
-        prompt = result['processed_prompt']
-        
-        # Verificación de profanidad
-        profanity_score = predict([prompt])[0]
-        
-        if profanity_score > 0.5:
-            result['issues'].append('harmful_language')
-            result['risk_level'] = 'high'
-            result['suggestions'].append({
-                'type': 'language_filter',
-                'recommendation': 'Utilice un lenguaje más respetuoso y constructivo'
-            })
-        
-        # Detección de contenido sensible
-        sensitive_keywords = [
-            'violencia', 'discriminación', 'odio', 
-            'contenido sexual explicito', 'autolesión'
-        ]
-        
-        for keyword in sensitive_keywords:
-            if keyword in prompt.lower():
-                result['issues'].append('sensitive_content')
-                result['risk_level'] = 'critical'
-                result['suggestions'].append({
-                    'type': 'content_warning',
-                    'recommendation': f'El prompt contiene palabras sensibles relacionadas con {keyword}'
-                })
-        
-        return result
-
-    @staticmethod
-    def validate_prompt_completeness(result: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Validación de la completitud del prompt
-        """
-        prompt = result['processed_prompt']
-        doc = nlp(prompt)
-        
-        # Verificar longitud mínima
-        if len(prompt.split()) < 3:
-            result['issues'].append('incomplete_prompt')
-            result['suggestions'].append({
-                'type': 'completeness',
-                'recommendation': 'El prompt es demasiado corto. Proporcione más contexto.'
-            })
-        
-        # Verificar estructura gramatical
-        if not any(token.pos_ in ['VERB', 'NOUN'] for token in doc):
-            result['issues'].append('unclear_structure')
-            result['suggestions'].append({
-                'type': 'clarity',
-                'recommendation': 'Incluya verbos o sustantivos clave para mayor claridad'
-            })
-        
-        return result
-
-    @staticmethod
-    def preprocess_prompt(prompt: str) -> Dict[str, Any]:
-        """
-        Función principal de preprocesamiento de prompts
-        """
-        result = {
-            'original_prompt': prompt,
-            'processed_prompt': prompt,
-            'issues': [],
-            'suggestions': [],
-            'risk_level': 'low'
-        }
-        
-        # Análisis de seguridad de contenido
-        safety_analysis = PromptPreprocessor.analyze_content_safety(prompt)
-        
-        if not safety_analysis['is_safe']:
-            result['issues'].append('content_safety_risk')
-            result['risk_level'] = 'critical'
-            result['safety_details'] = safety_analysis['details']
-            
-            return result
-        
-        # Mejora de prompt con OpenAI
-        enhanced_prompt = PromptPreprocessor.enhance_prompt_with_openai(prompt)
-        result['processed_prompt'] = enhanced_prompt
-        
-        # Corrección gramatical
-        result = PromptPreprocessor.grammatical_correction(result)
-        
-        # Detección de lenguaje dañino
-        result = PromptPreprocessor.detect_harmful_language(result)
-        
-        # Validación de completitud
-        result = PromptPreprocessor.validate_prompt_completeness(result)
-        
-        return result
-
-# Definición de funciones de Azure Functions con decoradores
 app = func.FunctionApp()
+
+def contains_inappropriate_language(prompt):
+    inappropriate_words = [
+        'mierda', 'idiota', 'estúpido', 'imbécil', 
+        'pendejo', 'hijo de puta', 'gilipollas'
+    ]
+    
+    prompt_lower = prompt.lower()
+    
+    for word in inappropriate_words:
+        if word in prompt_lower:
+            return True
+    
+    return False
+
+def detect_prompt_intention(prompt):
+    """
+    Análisis más detallado de la intención del prompt
+    """
+    intention_patterns = {
+        'learning': [
+            r'\b(aprender|explicar|entender|comprender)\b',
+            r'\b(cómo funciona|qué es|significado)\b'
+        ],
+        'problem_solving': [
+            r'\b(resolver|ayuda|solución|problema|diagnosticar)\b',
+            r'\b(cómo puedo|qué debo hacer)\b'
+        ],
+        'creative': [
+            r'\b(imaginar|crear|diseñar|inventar|proponer)\b',
+            r'\b(nueva idea|innovación|concepto)\b'
+        ],
+        'analytical': [
+            r'\b(analizar|investigar|estudiar|examinar)\b',
+            r'\b(impacto|consecuencias|desarrollo)\b'
+        ],
+        'technical': [
+            r'\b(algoritmo|inteligencia artificial|machine learning|tecnología)\b',
+            r'\b(programación|código|sistema|computación)\b'
+        ]
+    }
+    
+    detected_intentions = []
+    
+    for intention, patterns in intention_patterns.items():
+        for pattern in patterns:
+            if re.search(pattern, prompt.lower()):
+                detected_intentions.append(intention)
+                break
+    
+    return detected_intentions if detected_intentions else ['general']
+
+def detect_context_and_improve(prompt):
+    """
+    Detecta el contexto del prompt
+    """
+    context_patterns = {
+        'learning': [
+            r'\b(explicame|qué es|cómo funciona)\b',
+            r'\b(entender|comprender)\b'
+        ],
+        'problem_solving': [
+            r'\b(resolver|problema|ayuda|solución)\b',
+            r'\b(cómo puedo|qué debo hacer)\b'
+        ],
+        'creative': [
+            r'\b(imagina|crea|diseña|inventa|propón)\b',
+            r'\b(nueva idea|innovación|concepto)\b'
+        ],
+        'technical': [
+            r'\b(tecnología|algoritmo|sistema|método)\b',
+            r'\b(desarrollo|implementación)\b'
+        ]
+    }
+    
+    for context, patterns in context_patterns.items():
+        for pattern in patterns:
+            if re.search(pattern, prompt.lower()):
+                return context
+    
+    return 'general'
+
+def analyze_prompt_complexity(prompt):
+    """
+    Analiza la complejidad y profundidad del prompt
+    """
+    # Métricas de complejidad
+    word_count = len(prompt.split())
+    unique_words = len(set(prompt.lower().split()))
+    
+    # Detección de palabras técnicas o especializadas
+    technical_words = [
+        'algoritmo', 'inteligencia', 'machine learning', 
+        'neural', 'computacional', 'cuántico', 'blockchain'
+    ]
+    
+    technical_word_count = sum(1 for word in technical_words if word in prompt.lower())
+    
+    # Clasificación de complejidad
+    complexity_level = 'basic'
+    if word_count > 10 and unique_words > 8:
+        complexity_level = 'intermediate'
+    if technical_word_count > 0 or word_count > 15:
+        complexity_level = 'advanced'
+    
+    # Análisis de profundidad
+    depth_indicators = {
+        'basic': ['simple', 'general', 'introducción'],
+        'intermediate': ['detallado', 'explicación', 'análisis'],
+        'advanced': ['profundo', 'complejo', 'especializado']
+    }
+    
+    depth = random.choice(depth_indicators[complexity_level])
+    
+    return {
+        'word_count': word_count,
+        'unique_words': unique_words,
+        'technical_words': technical_word_count,
+        'complexity_level': complexity_level,
+        'depth': depth
+    }
+
+def generate_improvement_suggestions(intentions, context, complexity=None):
+    """
+    Genera sugerencias de mejora basadas en la intención, contexto y complejidad
+    """
+    suggestion_templates = {
+        'learning': [
+            "Profundice en los conceptos fundamentales.",
+            "Considere incluir ejemplos prácticos para una mejor comprensión."
+        ],
+        'problem_solving': [
+            "Proporcione más detalles sobre el contexto del problema.",
+            "Incluya información sobre los recursos o herramientas disponibles."
+        ],
+        'creative': [
+            "Explore límites y restricciones para guiar la creatividad.",
+            "Considere el impacto potencial de su idea innovadora."
+        ],
+        'technical': [
+            "Especifique el nivel de conocimiento técnico requerido.",
+            "Considere el ecosistema tecnológico relevante."
+        ],
+        'general': [
+            "Sea más específico en su solicitud.",
+            "Proporcione contexto adicional para una mejor comprensión."
+        ]
+    }
+    
+    # Combinar sugerencias basadas en intenciones y contexto
+    suggestions = []
+    for intention in intentions:
+        if intention in suggestion_templates:
+            suggestions.extend(
+                random.sample(suggestion_templates[intention], 
+                              min(1, len(suggestion_templates[intention])))
+            )
+    
+    # Sugerencias basadas en complejidad
+    if complexity:
+        if complexity.get('complexity_level') == 'basic':
+            suggestions.append("Considere expandir su prompt para obtener información más detallada.")
+        elif complexity.get('complexity_level') == 'advanced':
+            suggestions.append("Su prompt parece ser muy técnico. Asegúrese de que la audiencia comprenderá la terminología.")
+    
+    return suggestions
 
 @app.route(route="preprocess_prompt", methods=["POST"])
 def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
-    """
-    Función de preprocesamiento de prompts
-    """
     try:
         req_body = req.get_json()
         prompt = req_body.get('prompt', '')
@@ -225,97 +185,61 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         
-        processed_result = PromptPreprocessor.preprocess_prompt(prompt)
+        # Inicializar resultado
+        result = {
+            'original_prompt': prompt,
+            'processed_prompt': prompt,
+            'issues': [],
+            'suggestions': [],
+            'risk_level': 'low',
+            'intention': None,
+            'context': None,
+            'complexity': None
+        }
+        
+        # Validación de longitud
+        if len(prompt) < 5:
+            result['issues'].append('short_prompt')
+            result['suggestions'].append(
+                'El prompt es demasiado corto. Por favor, proporcione más contexto.'
+            )
+        
+        # Validación de lenguaje inapropiado
+        if contains_inappropriate_language(prompt):
+            result['issues'].append('inappropriate_language')
+            result['suggestions'].append(
+                'Se detectaron palabras inapropiadas. Por favor, use un lenguaje respetuoso.'
+            )
+            result['risk_level'] = 'high'
+        
+        # Detección de intención
+        intentions = detect_prompt_intention(prompt)
+        result['intention'] = intentions
+        
+        # Detección de contexto
+        context = detect_context_and_improve(prompt)
+        result['context'] = context
+        
+        # Análisis de complejidad
+        complexity_analysis = analyze_prompt_complexity(prompt)
+        result['complexity'] = complexity_analysis
+        
+        # Generar sugerencias de mejora
+        improvement_suggestions = generate_improvement_suggestions(
+            intentions, 
+            context,
+            result['complexity']
+        )
+        result['suggestions'].extend(improvement_suggestions)
         
         return func.HttpResponse(
-            json.dumps(processed_result),
+            json.dumps(result),
             status_code=200,
             mimetype="application/json"
         )
     
     except Exception as e:
         logging.error(f"Error en procesamiento: {str(e)}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
-            status_code=500,
-            mimetype="application/json"
-        )
-
-@app.route(route="validate_prompt", methods=["POST"])
-def validate_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
-    """
-    Función de validación específica de prompts
-    """
-    try:
-        req_body = req.get_json()
-        prompt = req_body.get('prompt', '')
-        
-        if not prompt:
-            return func.HttpResponse(
-                json.dumps({"error": "Prompt vacío"}),
-                status_code=400,
-                mimetype="application/json"
-            )
-        
-        # Validación específica de completitud y estructura
-        result = {
-            'original_prompt': prompt,
-            'processed_prompt': prompt,
-            'issues': [],
-            'suggestions': []
-        }
-        
-        result = PromptPreprocessor.validate_prompt_completeness(result)
-        
-        return func.HttpResponse(
-            json.dumps(result),
-            status_code=200,
-            mimetype="application/json"
-        )
-    
-    except Exception as e:
-        logging.error(f"Error en validación: {str(e)}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
-            status_code=500,
-            mimetype="application/json"
-        )
-
-@app.route(route="detect_language_risks", methods=["POST"])
-def detect_language_risks_endpoint(req: func.HttpRequest) -> func.HttpResponse:
-    """
-    Función de detección de riesgos de lenguaje
-    """
-    try:
-        req_body = req.get_json()
-        prompt = req_body.get('prompt', '')
-        
-        if not prompt:
-            return func.HttpResponse(
-                json.dumps({"error": "Prompt vacío"}),
-                status_code=400,
-                mimetype="application/json"
-            )
-        
-        # Detección específica de lenguaje dañino
-        result = {
-            'original_prompt': prompt,
-            'processed_prompt': prompt,
-            'issues': [],
-            'suggestions': [],
-            'risk_level': 'low'
-        }
-        
-        result = PromptPreprocessor.detect_harmful_language(result)
-        
-        return func.HttpResponse(
-            json.dumps(result),
-            status_code=200,
-            mimetype="application/json"
-        )
-    
-    except Exception as e:
-        logging.error(f"Error en detección de riesgos: {str(e)}")
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,
