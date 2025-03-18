@@ -30,11 +30,13 @@ Diseñar un sistema de preprocesamiento de prompts que:
 ## ⚙️ **Configuración Paso a Paso**  
 
 ### 1️⃣ **Crear escenario en Python/local**
+- Crear proyecto de Functions
 ```
-# Crear proyecto de Functions
-func init myFunctionApp --worker-runtime python
 
-# Entrar al directorio
+func init myFunctionApp --worker-runtime python
+```
+- Entrar al directorio
+```
 cd myFunctionApp
 ```
 - Debe quedar esta estructura: 
@@ -46,22 +48,27 @@ myFunctionApp/
 └── requirements.txt
 ```
 ### 2️⃣ **Actualizamos el Homebrew (solo para Linux/Mac) e instalamos CLI y CORE TOOLS de Azure**
+- Instalar Azure CLI
 ```
-# Instalar Azure CLI
+
 brew update
 brew install azure-cli
 ```
+- Instalar Azure Functions Core Tools
 ```
-# Instalar Azure Functions Core Tools
 brew tap azure/functions
-# Linux/Mac:
+```
+- Linux/Mac:
+```
 brew install azure-functions-core-tools@4 
-# Windows:
+```
+- Windows:
+```
 npm install -g azure-functions-core-tools@4 #Windows
 choco install azure-functions-core-tools-4  # considerar también si usa Chocolatey
 ```
+- Verificar instalaciones
 ```
-# Verificar instalaciones
 az --version
 func --version
 ```
@@ -387,16 +394,18 @@ wheel
 az login
 ```
 2. Crear recursos de Azure: 
+### **Nota importante**:
+En éste laboratorio, **<u>Codigo Facilito</u>** ha tenido la amabilidad de ofrecer una plataforma de trabajo en la que, al ingresar, el grupo de recurso **"equipo3"** ya estaba asignado. Por lo tanto, en **este Hackathon particular** éste paso puede omitirse. 
+- Crear grupo de recursos
+- Añadir región como variable, elegimos 'eastus2' ya que soporta el plan flex-consumption(y dentro de él tenemos python)
 ```
- # Crear grupo de recursos
-# Añadir región como variable, elegimos 'eastus2' ya que soporta el plan flex-consumption(y dentro de él tenemos python)
-REGION="eastus2"
-az group create --name MyPythonFunctionsGroup --location $REGION
+REGION="centralus"
+az group create --name <El_nombre_que_quieras_dar> --location $REGION
 ```
 ```
 
 # Crear cuenta de storage (requerida para Functions)
-STORAGE_ACCOUNT="almacenhackathonmarzo"
+STORAGE_ACCOUNT="almacenhackathonmarzo2"
 az storage account create \
     --name $STORAGE_ACCOUNT \
     --location $REGION \
@@ -404,9 +413,8 @@ az storage account create \
     --sku Standard_LRS
 
 ```
+- A veces hay demasiada latencia y no nos permite continuar con los scripts ya que no llegan a crearse las instancias en el portal, para que ello no suceda, he aqui un scrip que esperará dinamicamente que la cuenta de almacenamiento esté disponible:
 ```
-# A veces hay demasiada latencia y no nos permite continuar con los scripts ya que no llegan a crearse las instancias en el portal, para que ello no suceda, he aqui un scrip que esperará dinamicamente que la cuenta de almacenamiento esté disponible: 
-
 echo "Verificando la cuenta de almacenamiento..."
 while ! az storage account show --name $STORAGE_ACCOUNT --resource-group MyPythonFunctionsGroup &>/dev/null; do
     echo "Esperando a que la cuenta de almacenamiento esté disponible..."
@@ -414,37 +422,37 @@ while ! az storage account show --name $STORAGE_ACCOUNT --resource-group MyPytho
 done
 echo "Cuenta de almacenamiento detectada, continuando..."
 ```
+- Crear el plan de consumo Flex Consumption que, como ya dijimos mas arriba es el que soporta Python
 ```
-# Crear el plan de consumo Flex Consumption que, como ya dijimos mas arriba es el que soporta Python
+
 az functionapp plan create \
-    --resource-group MyPythonFunctionsGroup \
+    --resource-group equipo3 \
     --name my-flex-consumption-plan \
-    --location $REGION \
+    --location centralus \
     --sku EP1 \
     --is-linux
 ```
+- Crear Function App
 ```
-
-# Crear Function App
 az functionapp create \
-    --resource-group MyPythonFunctionsGroup \
+    --resource-group equipo3 \
     --plan my-flex-consumption-plan \
     --os-type Linux \
     --runtime python \
     --runtime-version 3.9 \
     --functions-version 4 \
-    --name mypythonfunctionapp \
+    --name functionforhackmar25 \
     --storage-account $STORAGE_ACCOUNT
 ```
 3. Verificacion:
 ```
-az functionapp list --resource-group MyPythonFunctionsGroup --query "[].{Name:name, Runtime:siteConfig.linuxFxVersion, OS:reserved}"
+az functionapp list --resource-group equipo3 --query "[].{Name:name, Runtime:siteConfig.linuxFxVersion, OS:reserved}"
 ```
-    . Este comando deberia devolver: 
+- Este comando deberia devolver: 
 ```
 [
   {
-    "Name": "mypythonfunctionapp",
+    "Name": "functionforhackmar25",
     "OS": true,
     "Runtime": "Python|3.9"
   }
@@ -452,41 +460,143 @@ az functionapp list --resource-group MyPythonFunctionsGroup --query "[].{Name:na
 ```
 
 ### 5️⃣ **Continuar trabajando en local:**
-1. Crear entorno virtual y descargar spacy:
+1. Crear entorno virtual para la posterior prueba local, si fuera necesario:
+- Antes de activar, asegurarse de tener la última versión de pip
 ```
-# Antes de activar, asegurarse de tener la última versión de pip
 python -m pip install --upgrade pip
 ```
+- Crear entorno en Python 3.9, en este caso se instalará usando "pyenv"
 ```
-# Crear entorno en Python 3.9, en este caso lo instalaré usando "pyenv"
 pyenv install 3.9.21
 ```
+- Paso a seguir:
 ```
 python -m venv venv
 ```
+- Activar en (windows):
 ```
-# Activar en windows:
 .\venv\Scripts\activate
-
-# Activar en Linux/Mac:
+```
+- Activar en Linux/Mac:
+```
 source venv/bin/activate
 ```
+- Instalar dependencias
 ```
-# Instalar dependencias
 pip install -r requirements.txt
-
-# Instalar modelo de spaCy
+```
+- Instalar modelo de spaCy
+```
 python -m spacy download es_core_news_sm
 ```
 2. Probar localmente:
 ```
 func start
 ```
+3. Para probar de forma local si está funcionando bien, podemos hacer estas consultas `curl`
+- Prueba básica con un prompt válido: 
+```
+curl -X POST "http://localhost:7071/api/preprocess_prompt" \
+     -H "Content-Type: application/json" \
+     -d '{"prompt": "¿Cómo funciona un algoritmo de machine learning?"}'
+```
+- Respuesta esperada:
+```
+{"original_prompt": "\u00bfC\u00f3mo funciona un algoritmo de machine learning?", "processed_prompt": "\u00bfC\u00f3mo funciona un algoritmo de machine learning?", "issues": [], "suggestions": ["Profundice en los conceptos fundamentales.", "Considere el ecosistema tecnol\u00f3gico relevante.", "Su prompt parece ser muy t\u00e9cnico. Aseg\u00farese de que la audiencia comprender\u00e1 la terminolog\u00eda."], "risk_level": "low", "intention": ["learning", "technical"], "context": "learning", "complexity": {"word_count": 7, "unique_words": 7, "technical_words": 2, "complexity_level": "advanced", "depth": "profundo"}}%  
+```
+- Prueba con un Prompt corto: 
+```
+curl -X POST "http://localhost:7071/api/preprocess_prompt" \
+     -H "Content-Type: application/json" \
+     -d '{"prompt": "Hola"}'
+```
+- Respuesta esperada: 
+```
+{"original_prompt": "Hola", "processed_prompt": "Hola", "issues": ["short_prompt"], "suggestions": ["El prompt es demasiado corto. Por favor, proporcione m\u00e1s contexto.", "Proporcione contexto adicional para una mejor comprensi\u00f3n.", "Considere expandir su prompt para obtener informaci\u00f3n m\u00e1s detallada."], "risk_level": "low", "intention": ["general"], "context": "general", "complexity": {"word_count": 1, "unique_words": 1, "technical_words": 0, "complexity_level": "basic", "depth": "general"}}
+```
+- Prueba con un prompt que contiene lenguaje inapropiado: 
+```
+curl -X POST "http://localhost:7071/api/preprocess_prompt" \
+     -H "Content-Type: application/json" \
+     -d '{"prompt": "Esto es una mierda, no sirve"}'
+```
+- Respuesta esperada: 
+```
+{"original_prompt": "Esto es una mierda, no sirve", "processed_prompt": "Esto es una mierda, no sirve", "issues": ["inappropriate_language"], "suggestions": ["Se detectaron palabras inapropiadas. Por favor, use un lenguaje respetuoso.", "Sea m\u00e1s espec\u00edfico en su solicitud.", "Considere expandir su prompt para obtener informaci\u00f3n m\u00e1s detallada."], "risk_level": "high", "intention": ["general"], "context": "general", "complexity": {"word_count": 6, "unique_words": 6, "technical_words": 0, "complexity_level": "basic", "depth": "introducci\u00f3n"}}%        
+```
+- Prueba con un prompt técnico avanzado:
+```
+curl -X POST "http://localhost:7071/api/preprocess_prompt" \
+     -H "Content-Type: application/json" \
+     -d '{"prompt": "Explícame cómo se implementa un modelo de redes neuronales convolucionales en Python"}'
+```
+- Respuesta esperada: 
+```
+{"original_prompt": "Expl\u00edcame c\u00f3mo se implementa un modelo de redes neuronales convolucionales en Python", "processed_prompt": "Expl\u00edcame c\u00f3mo se implementa un modelo de redes neuronales convolucionales en Python", "issues": [], "suggestions": ["Proporcione contexto adicional para una mejor comprensi\u00f3n."], "risk_level": "low", "intention": ["general"], "context": "general", "complexity": {"word_count": 12, "unique_words": 12, "technical_words": 0, "complexity_level": "intermediate", "depth": "explicaci\u00f3n"}}%  
+```
+- Prueba con un prompt vacío:
+```
+curl -X POST "http://localhost:7071/api/preprocess_prompt" \
+     -H "Content-Type: application/json" \
+     -d '{"prompt": ""}'
+```
+- Respuesta esperada: 
+```
+{"error": "Prompt vac\u00edo"}%  
+```
+- Prueba con un prompt creativo:
+```
+curl -X POST "http://localhost:7071/api/preprocess_prompt" \
+     -H "Content-Type: application/json" \
+     -d '{"prompt": "Diseña un nuevo sistema de recomendación de música basado en emociones"}'
+```
+- Respuesta esperada: 
+```
+{"original_prompt": "Dise\u00f1a un nuevo sistema de recomendaci\u00f3n de m\u00fasica basado en emociones", "processed_prompt": "Dise\u00f1a un nuevo sistema de recomendaci\u00f3n de m\u00fasica basado en emociones", "issues": [], "suggestions": ["Especifique el nivel de conocimiento t\u00e9cnico requerido."], "risk_level": "low", "intention": ["technical"], "context": "creative", "complexity": {"word_count": 11, "unique_words": 10, "technical_words": 0, "complexity_level": "intermediate", "depth": "detallado"}}%  
+```
+
+
+
 ### 6️⃣ **Desplegar en Azure:**
+- Publicar Function App
 ```
-# Publicar Function App
-func azure functionapp publish mypythonfunctionapp
-# Tambien se podria añadir flag para mostrar mas detalles:
-# func azure functionapp publish mypythonfunctionapp --verbose (opcional)
+func azure functionapp publish functionforhackmar25
 ```
+- Tambien se podria añadir flag para mostrar mas detalles:
+```
+func azure functionapp publish functionforhackmar25 --verbose (opcional)
+```
+- Verificar el deployment:
+```
+az functionapp show --name functionforhackmar25 --resource-group equipo3
+```
+- En la pestaña CORS (function -> API -> CORS)se aconseja **<ins>no clickear</ins>** sobre "<ins>Habilitar Access-Control-Allow-Credentials</ins>" y colocar estas direcciones en 'Origenes permitidos':
+```
+https://portal.azure.com
+https://localhost:3000
+```
+
+
+- Obtener la URL de la API desplegada:
+```
+az functionapp list --query "[].{Name:name, DefaultHostName:defaultHostName}" --output table
+```
+## 🔹 **Autenticación y Obtención del Código de Acceso**
+En éste laboratorio, Azure Functions puede requerir una clave de acceso (`code`) si el `authLevel` no está configurado como `"anonymous"`.  
+Para obtener esta clave, puedes ejecutar el siguiente comando en **Azure CLI**:
+
+```sh
+az functionapp keys list --name functionforhackmar25 --resource-group equipo3 --query "functionKeys.default" --output tsv
+```
+
+Una vez obtenida la clave, se debe agregar a las solicitudes a la API como un parámetro en la URL:
+
+```
+curl -X POST "https://functionforhackmar25.azurewebsites.net/api/preprocess_prompt?code=<LA_CLAVE_OBTENIDA>" \
+     -H "Content-Type: application/json" \                                                       
+     -d '{"prompt": "¿Cómo funciona un algoritmo de machine learning?"}'                   
+```
+
+Si en el futuro la autenticación se configura como `"anonymous"`, este parámetro ya no será necesario.
+
 ---

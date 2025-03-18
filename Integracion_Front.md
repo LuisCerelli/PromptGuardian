@@ -1,29 +1,54 @@
-# Integración del Frontend con Azure Function
-#### **<u>Importante:</u>**: Este material ha sido removido de manera temporal de la nube por motivos presupuestarios.
+# 📌 Integración del Frontend con Azure Function
 
-## 🔹 Endpoint de la API
+## 🔹 **Endpoint de la API**
 ```plaintext
 https://myfunctionapphackathonmarzo2025.azurewebsites.net/api/preprocess_prompt
 ```
 
-## 🔹 Método HTTP
+---
+
+## 🔹 **Método HTTP**
 **`POST`**
 
-## 🔹 Headers requeridos
+---
+
+## 🔹 **Autenticación y Obtención del Código de Acceso**
+Azure Functions puede requerir una clave de acceso (`code`) si el `authLevel` no está configurado como `"anonymous"`.  
+Para obtener esta clave, puedes ejecutar el siguiente comando en **Azure CLI**:
+
+```sh
+az functionapp keys list --name functionforhackmar25 --resource-group equipo3 --query "functionKeys.default" --output tsv
+```
+
+Una vez obtenida la clave, debes agregarla a las solicitudes a la API como un parámetro en la URL:
+
+```plaintext
+https://myfunctionapphackathonmarzo2025.azurewebsites.net/api/preprocess_prompt?code=TU_CODIGO_DE_ACCESO
+```
+
+Si en el futuro la autenticación se configura como `"anonymous"`, este parámetro ya no será necesario.
+
+---
+
+## 🔹 **Headers requeridos**
 ```json
 {
   "Content-Type": "application/json"
 }
 ```
 
-## 🔹 Body de la solicitud (JSON)
+---
+
+## 🔹 **Body de la solicitud (JSON)**
 ```json
 {
   "prompt": "Quiero aprender machine learning"
 }
 ```
 
-## 🔹 Respuesta esperada (JSON)
+---
+
+## 🔹 **Respuesta esperada (JSON)**
 ```json
 {
     "original_prompt": "Quiero aprender machine learning",
@@ -46,7 +71,5 @@ https://myfunctionapphackathonmarzo2025.azurewebsites.net/api/preprocess_prompt
 }
 ```
 
-
-
-
+---
 
