@@ -336,34 +336,28 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
 
 2. Archivo `requirements.txt`:
 ```
-azure-functions==1.17.0
-azure-ai-contentsafety==1.0.0
-openai==1.3.0
-spacy==3.5.2
-textblob==0.17.1
-profanity-check==1.0.7
-https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.5.0/es_core_news_sm-3.5.0-py3-none-any.whl
-python-dotenv==1.0.0
-setuptools
-wheel
+azure-functions
+textblob
+openai
+python-dotenv
 ```
 
 3. Archivo `host.json`:
 ```
 {
-    "version": "2.0",
-    "logging": {
-        "applicationInsights": {
-            "samplingSettings": {
-                "isEnabled": true,
-                "excludedTypes": "Request"
-            }
-        }
-    },
-    "extensionBundle": {
-        "id": "Microsoft.Azure.Functions.ExtensionBundle",
-        "version": "[3.*, 4.0.0)"
-    }
+  "version": "2.0",
+  "logging": {
+      "applicationInsights": {
+          "samplingSettings": {
+              "isEnabled": true,
+              "excludedTypes": "Request"
+          }
+      }
+  },
+  "extensionBundle": {
+      "id": "Microsoft.Azure.Functions.ExtensionBundle",
+      "version": "[3.*, 4.0.0)"
+  }
 }
 ```
 4. Archivo `local.settings.json`:
@@ -376,7 +370,7 @@ wheel
         "OPENAI_API_KEY": "tu_clave_de_openai",
         "AZURE_CONTENT_SAFETY_ENDPOINT": "tu_endpoint_de_content_safety",
         "AZURE_CONTENT_SAFETY_KEY": "tu_clave_de_content_safety",
-        "SPACY_MODEL": "es_core_news_sm"  // Añadido para referencia del modelo
+       
     }
 }
 ```
@@ -485,10 +479,7 @@ source venv/bin/activate
 ```
 pip install -r requirements.txt
 ```
-- Instalar modelo de spaCy
-```
-python -m spacy download es_core_news_sm
-```
+
 2. Probar localmente:
 ```
 func start

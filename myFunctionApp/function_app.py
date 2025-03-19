@@ -172,19 +172,36 @@ def generate_improvement_suggestions(intentions, context, complexity=None):
     
     return suggestions
 
-@app.route(route="preprocess_prompt", methods=["POST"])
+@app.route(route="preprocess_prompt", methods=["OPTIONS", "POST"])
 def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
+    # Manejando la solicitud OPTIONS (preflight)
+    if req.method == "OPTIONS":
+        return func.HttpResponse(
+            "",
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",  # Permitir solicitudes desde cualquier origen
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+        )
+
     try:
         req_body = req.get_json()
         prompt = req_body.get('prompt', '')
-        
+
         if not prompt:
             return func.HttpResponse(
                 json.dumps({"error": "Prompt vacío"}),
                 status_code=400,
-                mimetype="application/json"
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",  # CORS permitido
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                },
             )
-        
+
         # Inicializar resultado
         result = {
             'original_prompt': prompt,
@@ -196,14 +213,14 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
             'context': None,
             'complexity': None
         }
-        
+
         # Validación de longitud
         if len(prompt) < 5:
             result['issues'].append('short_prompt')
             result['suggestions'].append(
                 'El prompt es demasiado corto. Por favor, proporcione más contexto.'
             )
-        
+
         # Validación de lenguaje inapropiado
         if contains_inappropriate_language(prompt):
             result['issues'].append('inappropriate_language')
@@ -211,19 +228,19 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
                 'Se detectaron palabras inapropiadas. Por favor, use un lenguaje respetuoso.'
             )
             result['risk_level'] = 'high'
-        
+
         # Detección de intención
         intentions = detect_prompt_intention(prompt)
         result['intention'] = intentions
-        
+
         # Detección de contexto
         context = detect_context_and_improve(prompt)
         result['context'] = context
-        
+
         # Análisis de complejidad
         complexity_analysis = analyze_prompt_complexity(prompt)
         result['complexity'] = complexity_analysis
-        
+
         # Generar sugerencias de mejora
         improvement_suggestions = generate_improvement_suggestions(
             intentions, 
@@ -231,17 +248,28 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
             result['complexity']
         )
         result['suggestions'].extend(improvement_suggestions)
-        
+
+        # Responder con los resultados
         return func.HttpResponse(
             json.dumps(result),
             status_code=200,
-            mimetype="application/json"
+            mimetype="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",  # CORS permitido
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
         )
-    
+
     except Exception as e:
         logging.error(f"Error en procesamiento: {str(e)}")
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,
-            mimetype="application/json"
+            mimetype="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",  # CORS permitido
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
         )
