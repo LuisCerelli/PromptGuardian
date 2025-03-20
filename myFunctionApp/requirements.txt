@@ -1,4 +1,6 @@
 azure-functions
-textblob
 openai
+azure-ai-contentsafety
+azure-ai-textanalytics
+textblob
 python-dotenv

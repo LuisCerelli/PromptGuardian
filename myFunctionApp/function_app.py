@@ -4,6 +4,23 @@ import json
 import re
 import random
 
+
+import os
+import openai
+
+from azure.ai.contentsafety import ContentSafetyClient
+from azure.ai.contentsafety.models import AnalyzeTextOptions
+from azure.core.credentials import AzureKeyCredential
+
+# Cargar credenciales desde variables de entorno
+OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+
+CONTENT_SAFETY_KEY = os.getenv("AZURE_CONTENT_SAFETY_KEY")
+CONTENT_SAFETY_ENDPOINT = os.getenv("AZURE_CONTENT_SAFETY_ENDPOINT")
+
 app = func.FunctionApp()
 
 def contains_inappropriate_language(prompt):
@@ -171,6 +188,37 @@ def generate_improvement_suggestions(intentions, context, complexity=None):
             suggestions.append("Su prompt parece ser muy técnico. Asegúrese de que la audiencia comprenderá la terminología.")
     
     return suggestions
+'''    
+def analyze_content_safety(text):
+    """Analiza el texto con Azure Content Safety."""
+    try:
+        client = ContentSafetyClient(endpoint=CONTENT_SAFETY_ENDPOINT, credential=AzureKeyCredential(CONTENT_SAFETY_KEY))
+        response = client.analyze_text(AnalyzeTextOptions(text=text))
+        return response.categories  # Devuelve categorías de riesgo identificadas
+    except Exception as e:
+        logging.error(f"Error en Content Safety: {str(e)}")
+        return []
+'''
+def analyze_with_openai(prompt):
+    """Usa Azure OpenAI para analizar el prompt y mejorar su calidad."""
+    try:
+        client = openai.AzureOpenAI(
+            api_key=OPENAI_API_KEY,
+            api_version=OPENAI_API_VERSION,
+            azure_endpoint=OPENAI_ENDPOINT
+        )
+        
+        response = client.chat.completions.create(
+            model=OPENAI_DEPLOYMENT,
+            messages=[{"role": "system", "content": "Eres un asistente útil que analiza y mejora prompts."},
+                      {"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=150
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        logging.error(f"Error en OpenAI: {str(e)}")
+        return None
 
 @app.route(route="preprocess_prompt", methods=["OPTIONS", "POST"])
 def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
@@ -248,6 +296,11 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
             result['complexity']
         )
         result['suggestions'].extend(improvement_suggestions)
+        
+        # Análisis con OpenAI
+        improved_prompt = analyze_with_openai(prompt)
+        if improved_prompt:
+            result['processed_prompt'] = improved_prompt
 
         # Responder con los resultados
         return func.HttpResponse(
