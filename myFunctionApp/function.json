@@ -1,20 +1,18 @@
 {
-    "bindings": [
-        {
-            "authLevel": "anonymous",
-            "direction": "IN",
-            "methods": [
-                "POST"
-            ],
-            "name": "req",
-            "route": "preprocess_prompt",
-            "type": "httpTrigger"
-        },
-        {
-            "direction": "OUT",
-            "name": "$return",
-            "type": "http"
-        }
-    ]
+  "scriptFile": "function_app.py",
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "direction": "IN",
+      "methods": ["POST"],
+      "name": "req",
+      "route": "preprocess_prompt",
+      "type": "httpTrigger"
+    },
+    {
+      "direction": "OUT",
+      "name": "$return",
+      "type": "http"
+    }
+  ]
 }
-

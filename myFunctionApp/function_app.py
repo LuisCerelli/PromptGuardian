@@ -11,6 +11,7 @@ import openai
 from azure.ai.contentsafety import ContentSafetyClient
 from azure.ai.contentsafety.models import AnalyzeTextOptions
 from azure.core.credentials import AzureKeyCredential
+from azure.core.exceptions import HttpResponseError
 
 # Cargar credenciales desde variables de entorno
 OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
@@ -18,8 +19,8 @@ OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
 OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
 
-CONTENT_SAFETY_KEY = os.getenv("AZURE_CONTENT_SAFETY_KEY")
-CONTENT_SAFETY_ENDPOINT = os.getenv("AZURE_CONTENT_SAFETY_ENDPOINT")
+CONTENT_SAFETY_KEY = os.getenv("AZURE_CONTENT_SAFETY_API_KEY")
+CONTENT_SAFETY_ENDPOINT = os.getenv("AZURE_CONTENT_SAFETY_API_URL")
 
 app = func.FunctionApp()
 
@@ -188,17 +189,67 @@ def generate_improvement_suggestions(intentions, context, complexity=None):
             suggestions.append("Su prompt parece ser muy técnico. Asegúrese de que la audiencia comprenderá la terminología.")
     
     return suggestions
-'''    
-def analyze_content_safety(text):
-    """Analiza el texto con Azure Content Safety."""
+    
+def analyze_content_safety(text, max_severity=3):
+    """Analiza el texto y devuelve una respuesta en español indicando posibles problemas y sugerencias."""
+    result = {
+        "original_prompt": text,
+        "processed_prompt": text,
+        "issues": [],
+        "suggestions": [],
+        "risk_level": "low",
+        "intention": None,
+        "context": None,
+        "complexity": None
+    }
+
+    # Validar credenciales antes de ejecutar
+    if not CONTENT_SAFETY_ENDPOINT or not CONTENT_SAFETY_KEY:
+        logging.error("Las credenciales de Content Safety no están configuradas correctamente.")
+        return {"error": "Error de configuración: faltan credenciales de Content Safety."}
+
     try:
-        client = ContentSafetyClient(endpoint=CONTENT_SAFETY_ENDPOINT, credential=AzureKeyCredential(CONTENT_SAFETY_KEY))
+        client = ContentSafetyClient(endpoint=CONTENT_SAFETY_ENDPOINT, credential=AzureKeyCredential(str(CONTENT_SAFETY_KEY)))
         response = client.analyze_text(AnalyzeTextOptions(text=text))
-        return response.categories  # Devuelve categorías de riesgo identificadas
+
+        # 🔍 Imprimir la respuesta de Azure en logs
+        logging.info(f"Respuesta de Azure: {response}")
+
+        # Verificar si hay datos en categoriesAnalysis
+        if not response.categories_analysis:
+            logging.warning("La respuesta de Azure no contiene análisis de categorías.")
+            return {"error": "No se recibieron datos de análisis de contenido."}
+
+        # Procesar las categorías de la respuesta
+        for category_analysis in response.categories_analysis:
+            category = category_analysis.category.lower()  # Convertimos a minúsculas para evitar errores de comparación
+            severity = category_analysis.severity
+
+            if severity > max_severity:
+                result["issues"].append(category)
+                result["risk_level"] = "high"
+
+        # Agregar sugerencias basadas en las categorías detectadas
+        messages = {
+            "hate": "Se detectó lenguaje de odio. Por favor, use un lenguaje respetuoso.",
+            "selfharm": "Se detectaron indicios de autolesión. Si necesita ayuda, por favor busque apoyo profesional.",
+            "sexual": "El texto contiene contenido sexual. Considere reformularlo para mayor adecuación.",
+            "violence": "Se detectó contenido violento. Evite promover la violencia en su mensaje."
+        }
+
+        for issue in result["issues"]:
+            if issue in messages:
+                result["suggestions"].append(messages[issue])
+
+        return result
+    
+    except HttpResponseError as ex:
+        logging.error(f"Error en el análisis de contenido: {ex.message}")
+        return {"error": f"Error en la API de Azure: {ex.message}"}
     except Exception as e:
-        logging.error(f"Error en Content Safety: {str(e)}")
-        return []
-'''
+        logging.error(f"Error inesperado en el análisis de contenido: {str(e)}")
+        return {"error": f"Error inesperado: {str(e)}"}
+
 def analyze_with_openai(prompt):
     """Usa Azure OpenAI para analizar el prompt y mejorar su calidad."""
     try:
@@ -228,7 +279,7 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
             "",
             status_code=200,
             headers={
-                "Access-Control-Allow-Origin": "*",  # Permitir solicitudes desde cualquier origen
+                "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "POST, OPTIONS",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
@@ -244,16 +295,16 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
                 status_code=400,
                 mimetype="application/json",
                 headers={
-                    "Access-Control-Allow-Origin": "*",  # CORS permitido
+                    "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Methods": "POST, OPTIONS",
                     "Access-Control-Allow-Headers": "Content-Type",
                 },
             )
 
-        # Inicializar resultado
+        # 🔹 1. Inicializar resultado
         result = {
             'original_prompt': prompt,
-            'processed_prompt': prompt,
+            'processed_prompt': prompt,  # Solo cambiará si OpenAI se ejecuta
             'issues': [],
             'suggestions': [],
             'risk_level': 'low',
@@ -262,53 +313,56 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
             'complexity': None
         }
 
-        # Validación de longitud
-        if len(prompt) < 5:
-            result['issues'].append('short_prompt')
-            result['suggestions'].append(
-                'El prompt es demasiado corto. Por favor, proporcione más contexto.'
-            )
+        # 🔹 2. Analizar seguridad con Content Safety
+        content_safety_result = analyze_content_safety(prompt)
+        result['issues'].extend(content_safety_result.get('issues', []))
+        result['suggestions'].extend(content_safety_result.get('suggestions', []))
+        result['risk_level'] = content_safety_result.get('risk_level', 'low')
 
-        # Validación de lenguaje inapropiado
+        # 🔹 3. Detectar lenguaje inapropiado
         if contains_inappropriate_language(prompt):
             result['issues'].append('inappropriate_language')
-            result['suggestions'].append(
-                'Se detectaron palabras inapropiadas. Por favor, use un lenguaje respetuoso.'
-            )
+            result['suggestions'].append('Se detectaron palabras inapropiadas. El procesamiento fue detenido.')
             result['risk_level'] = 'high'
 
-        # Detección de intención
-        intentions = detect_prompt_intention(prompt)
-        result['intention'] = intentions
+        # 🔹 4. Si hay lenguaje inapropiado o riesgo alto, detener aquí
+        if 'inappropriate_language' in result['issues'] or result['risk_level'] == 'high':
+            return func.HttpResponse(
+                json.dumps(result),
+                status_code=200,
+                mimetype="application/json",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                },
+            )
 
-        # Detección de contexto
-        context = detect_context_and_improve(prompt)
-        result['context'] = context
+        # 🔹 5. Detección de intención, contexto y complejidad
+        result['intention'] = detect_prompt_intention(prompt)
+        result['context'] = detect_context_and_improve(prompt)
+        result['complexity'] = analyze_prompt_complexity(prompt)
 
-        # Análisis de complejidad
-        complexity_analysis = analyze_prompt_complexity(prompt)
-        result['complexity'] = complexity_analysis
-
-        # Generar sugerencias de mejora
+        # 🔹 6. Generar sugerencias de mejora
         improvement_suggestions = generate_improvement_suggestions(
-            intentions, 
-            context,
+            result['intention'], 
+            result['context'],
             result['complexity']
         )
         result['suggestions'].extend(improvement_suggestions)
-        
-        # Análisis con OpenAI
+
+        # 🔹 7. Ejecutar OpenAI solo si no hay lenguaje inapropiado
         improved_prompt = analyze_with_openai(prompt)
         if improved_prompt:
             result['processed_prompt'] = improved_prompt
 
-        # Responder con los resultados
+        # 🔹 8. Responder con los resultados
         return func.HttpResponse(
             json.dumps(result),
             status_code=200,
             mimetype="application/json",
             headers={
-                "Access-Control-Allow-Origin": "*",  # CORS permitido
+                "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "POST, OPTIONS",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
@@ -321,7 +375,7 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
             mimetype="application/json",
             headers={
-                "Access-Control-Allow-Origin": "*",  # CORS permitido
+                "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "POST, OPTIONS",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
