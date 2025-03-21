@@ -1,4 +1,11 @@
-# Prompt Preprocessor: Sistema Inteligente de Validación de Prompts
+# Prompt Guard: Sistema Inteligente de Validación de Prompts
+
+<p align="center">
+ 
+ ![Logo](/images/PromptGuard.png)
+ 
+</p>
+
 
 ## 🎯 Objetivo
 Diseñar un sistema de preprocesamiento de prompts que:
@@ -26,6 +33,7 @@ Diseñar un sistema de preprocesamiento de prompts que:
 - Filtrado de lenguaje inapropiado
 - Sugerencias de alternativas éticas y constructivas
 ---
+
 
 ## ⚙️ **Configuración Paso a Paso**  
 
