@@ -190,11 +190,12 @@ def generate_improvement_suggestions(intentions, context, complexity=None):
     
     return suggestions
     
-def analyze_content_safety(text, max_severity=3):
+def analyze_content_safety(text, max_severity=1):
     """Analiza el texto y devuelve una respuesta en español indicando posibles problemas y sugerencias."""
     result = {
         "original_prompt": text,
-        "processed_prompt": text,
+        "sanitized_prompt": text,
+        "processed_prompt": None,
         "issues": [],
         "suggestions": [],
         "risk_level": "low",
@@ -240,7 +241,7 @@ def analyze_content_safety(text, max_severity=3):
         for issue in result["issues"]:
             if issue in messages:
                 result["suggestions"].append(messages[issue])
-
+        logging.info(f"Respuesta de issue: {result}")
         return result
     
     except HttpResponseError as ex:
@@ -250,6 +251,31 @@ def analyze_content_safety(text, max_severity=3):
         logging.error(f"Error inesperado en el análisis de contenido: {str(e)}")
         return {"error": f"Error inesperado: {str(e)}"}
 
+'''
+def analyze_content_safety(text):
+    try:
+        logging.info(f"ENDPOINT: {CONTENT_SAFETY_ENDPOINT}")
+        client = ContentSafetyClient(
+            endpoint=CONTENT_SAFETY_ENDPOINT,
+            credential=AzureKeyCredential(CONTENT_SAFETY_KEY),
+            api_version="2024-09-01"
+        )
+        response = client.analyze_text(AnalyzeTextOptions(text=text))
+
+        # 👇 DEBUG: imprime toda la respuesta del servicio
+        logging.info(f"🔍 Resultado completo de Content Safety: {response}")
+        
+        # 👇 Forzamos logging detallado de cada categoría
+        if hasattr(response, "categories_analysis"):
+            for item in response.categories_analysis:
+                logging.info(f"📌 Categoría: {item.category} - Severidad: {item.severity}")
+
+        return [item.category for item in response.categories_analysis]  # si tu código original lo requiere
+
+    except Exception as e:
+        logging.error(f"❌ Error en Content Safety: {str(e)}")
+        return []
+'''
 def analyze_with_openai(prompt):
     """Usa Azure OpenAI para analizar el prompt y mejorar su calidad."""
     try:
@@ -261,10 +287,10 @@ def analyze_with_openai(prompt):
         
         response = client.chat.completions.create(
             model=OPENAI_DEPLOYMENT,
-            messages=[{"role": "system", "content": "Eres un asistente útil que analiza y mejora prompts."},
+            messages=[{"role": "system", "content": "Corrige los errores ortográficos y gramaticales en la pregunta del usuario sin cambiar su significado original. No elimines ni reemplaces palabras clave como 'AI', 'inteligencia artificial', 'machine learning', 'EE.UU.', 'CIA', 'datos', 'seguridad', etc. Si el usuario hace una pregunta confusa, corrige la gramática y la ortografía pero mantén el significado. Devuelve únicamente la pregunta corregida, sin agregar explicaciones ni comentarios adicionales."},
                       {"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=150
+            temperature=0.1,
+            max_tokens=50
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -299,12 +325,13 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
                     "Access-Control-Allow-Methods": "POST, OPTIONS",
                     "Access-Control-Allow-Headers": "Content-Type",
                 },
-            )
-
+            )       
+        
         # 🔹 1. Inicializar resultado
         result = {
             'original_prompt': prompt,
-            'processed_prompt': prompt,  # Solo cambiará si OpenAI se ejecuta
+            'sanitized_prompt': prompt,  # Solo cambiará si OpenAI se ejecuta para mejorar la pregunta si el content Safety detecta algo
+            'processed_prompt': None,  #Solo cambiará si OpenAI se ejecuta el prompt y content safety pone riesgo no elevado.          
             'issues': [],
             'suggestions': [],
             'risk_level': 'low',
@@ -318,41 +345,28 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
         result['issues'].extend(content_safety_result.get('issues', []))
         result['suggestions'].extend(content_safety_result.get('suggestions', []))
         result['risk_level'] = content_safety_result.get('risk_level', 'low')
-
-        # 🔹 3. Detectar lenguaje inapropiado
-        if contains_inappropriate_language(prompt):
-            result['issues'].append('inappropriate_language')
-            result['suggestions'].append('Se detectaron palabras inapropiadas. El procesamiento fue detenido.')
-            result['risk_level'] = 'high'
-
+        
         # 🔹 4. Si hay lenguaje inapropiado o riesgo alto, detener aquí
         if 'inappropriate_language' in result['issues'] or result['risk_level'] == 'high':
-            return func.HttpResponse(
-                json.dumps(result),
-                status_code=200,
-                mimetype="application/json",
-                headers={
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type",
-                },
-            )
-
-        # 🔹 5. Detección de intención, contexto y complejidad
-        result['intention'] = detect_prompt_intention(prompt)
-        result['context'] = detect_context_and_improve(prompt)
-        result['complexity'] = analyze_prompt_complexity(prompt)
-
-        # 🔹 6. Generar sugerencias de mejora
-        improvement_suggestions = generate_improvement_suggestions(
-            result['intention'], 
-            result['context'],
-            result['complexity']
-        )
-        result['suggestions'].extend(improvement_suggestions)
-
+            
+            # ✅ Si el contenido es moderadamente riesgoso, lo reformulamos
+            result['sanitized_prompt'] = analyze_with_openai(f"Reformula esta pregunta para que sea ética y segura: {prompt}")
+            
+            logging.info(f"Entro a lenguajes inapropiados o errores: {result}")
+            if result['risk_level'] == 'high':
+                return func.HttpResponse(
+                    json.dumps(result),
+                    status_code=200,
+                    mimetype="application/json",
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "POST, OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type",
+                    },
+                )
+        
         # 🔹 7. Ejecutar OpenAI solo si no hay lenguaje inapropiado
-        improved_prompt = analyze_with_openai(prompt)
+        improved_prompt = analyze_with_openai(result['sanitized_prompt'])
         if improved_prompt:
             result['processed_prompt'] = improved_prompt
 
@@ -367,6 +381,7 @@ def preprocess_prompt_endpoint(req: func.HttpRequest) -> func.HttpResponse:
                 "Access-Control-Allow-Headers": "Content-Type",
             },
         )
+        
 
     except Exception as e:
         logging.error(f"Error en procesamiento: {str(e)}")
