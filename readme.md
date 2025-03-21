@@ -1,4 +1,5 @@
-# Prompt Guard: Sistema Inteligente de Validación de Prompts
+# Prompt Guard: 
+# Sistema Inteligente de Validación de Prompts
 
 <p align="center">
  
@@ -12,6 +13,13 @@ Diseñar un sistema de preprocesamiento de prompts que:
 - Valide y corrija entradas antes de enviarlas a modelos de IA
 - Optimice la calidad y seguridad de las generaciones
 - Mitigue riesgos potenciales en la interacción con IA
+  
+<p align="center">
+ 
+![Web](images/page3.png)
+
+[WEB](https://frontend-pront-guard.vercel.app/)
+</p>
 
 ## 🛡️ Características Principales
 - Corrección gramatical automática
@@ -33,7 +41,11 @@ Diseñar un sistema de preprocesamiento de prompts que:
 - Filtrado de lenguaje inapropiado
 - Sugerencias de alternativas éticas y constructivas
 ---
+<p align="center">
+ 
+![Web](images/PromptGuardpage7.png)
 
+</p>
 
 ## ⚙️ **Configuración Paso a Paso**  
 
@@ -599,3 +611,17 @@ curl -X POST "https://functionforhackmar25.azurewebsites.net/api/preprocess_prom
 Si en el futuro la autenticación se configura como `"anonymous"`, este parámetro ya no será necesario.
 
 ---
+
+
+
+<p align="center">
+ 
+![Web](images/page8.png)
+
+</p>
+
+[Luis Alberto Cerelli](https://www.linkedin.com/in/luis-cerelli/)
+[Edgar Camilo Guerrero](https://www.linkedin.com/in/edgar-guerrero9606/)
+[Maria Jimena Fioni](https://www.linkedin.com/in/jimena-fioni/)
+[Cristian Paez](https://www.linkedin.com/in/cristian009/)
+[Henry Suarez Lazarte](https://www.linkedin.com/in/henry-angel-suarez-lazarte/)
