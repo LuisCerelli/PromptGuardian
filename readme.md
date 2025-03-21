@@ -1,5 +1,14 @@
-# Prompt Guard: 
-# Sistema Inteligente de Validación de Prompts
+<div align="center">
+
+# 🤖 Prompt Guard: 
+# Sistema Inteligente de Validación de Prompts 
+---
+
+
+# Microsoft Innovation Challenge Marzo 2025  
+
+</div>
+
 
 <p align="center">
  
