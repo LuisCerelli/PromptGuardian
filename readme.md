@@ -629,8 +629,9 @@ Si en el futuro la autenticación se configura como `"anonymous"`, este parámet
 
 </p>
 
-[Luis Alberto Cerelli](https://www.linkedin.com/in/luis-cerelli/)
-[Edgar Camilo Guerrero](https://www.linkedin.com/in/edgar-guerrero9606/)
-[Maria Jimena Fioni](https://www.linkedin.com/in/jimena-fioni/)
-[Cristian Paez](https://www.linkedin.com/in/cristian009/)
-[Henry Suarez Lazarte](https://www.linkedin.com/in/henry-angel-suarez-lazarte/)
+
+- [Luis Alberto Cerelli](https://www.linkedin.com/in/luis-cerelli/)
+- [Edgar Camilo Guerrero](https://www.linkedin.com/in/edgar-guerrero9606/)
+- [Maria Jimena Fioni](https://www.linkedin.com/in/jimena-fioni/)
+- [Cristian Paez](https://www.linkedin.com/in/cristian009/)
+- [Henry Suarez Lazarte](https://www.linkedin.com/in/henry-angel-suarez-lazarte/)
