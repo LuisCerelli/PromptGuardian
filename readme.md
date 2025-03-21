@@ -45,6 +45,12 @@ Diseñar un sistema de preprocesamiento de prompts que:
   * spaCy
   * TextBlob
 
+ <p align="center">
+ 
+![Aquitectura](images/Arquitectura.png)
+
+</p>
+
 ## 🔒 Componentes de Seguridad
 - Análisis de riesgos de contenido
 - Filtrado de lenguaje inapropiado
