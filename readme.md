@@ -62,7 +62,13 @@ Diseñar un sistema de preprocesamiento de prompts que:
 
 </p>
 
+## **Demo Video**
+
+[![Watch the video](https://img.youtube.com/vi/2oxRFpunyTo/0.jpg)](https://youtu.be/2oxRFpunyTo)
+
 ## ⚙️ **Configuración Paso a Paso**  
+
+![Video](https://youtu.be/2oxRFpunyTo)
 
 ### 1️⃣ **Crear escenario en Python/local**
 - Crear proyecto de Functions
